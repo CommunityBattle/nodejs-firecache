@@ -29,6 +29,25 @@ class Firestore {
         }
     }
 
+    public insert(path: string, data: any): Promise<string> {
+        return new Promise(async (resolve, reject) => {
+            if (this.isDoc(path)) {
+                let doc = await this.googleCloudFirestore.doc(path).get();
+                if (doc.exists) {
+                    return reject(new AlreadyExists());
+                }
+                else {
+                    await this.googleCloudFirestore.doc(path).create(data);
+                    return resolve("");
+                }
+            }
+            else {
+                let doc = await this.googleCloudFirestore.collection(path).add(data);
+                resolve(doc.id)
+            }
+        });
+    }
+
     public read(path: string, query?: Q): Promise<any> {
         return new Promise(async (resolve, reject) => {
             if (this.isDoc(path)) {
@@ -51,25 +70,6 @@ class Firestore {
                 }
 
                 return resolve(data);
-            }
-        });
-    }
-
-    public insert(path: string, data: any): Promise<string> {
-        return new Promise(async (resolve, reject) => {
-            if (this.isDoc(path)) {
-                let doc = await this.googleCloudFirestore.doc(path).get();
-                if (doc.exists) {
-                    return reject(new AlreadyExists());
-                }
-                else {
-                    await this.googleCloudFirestore.doc(path).create(data);
-                    return resolve("");
-                }
-            }
-            else {
-                let doc = await this.googleCloudFirestore.collection(path).add(data);
-                resolve(doc.id)
             }
         });
     }
