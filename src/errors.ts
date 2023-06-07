@@ -5,11 +5,25 @@ class FirestoreError extends Error {
     }
 }
 
-class FirestoreNoDataError extends FirestoreError{
+class NoData extends FirestoreError{
     constructor(){
         super('no data');
-        Object.setPrototypeOf(this, FirestoreNoDataError.prototype);
+        Object.setPrototypeOf(this, NoData.prototype);
     }
 }
 
-export {  FirestoreNoDataError }
+class AlreadyExists extends FirestoreError{
+    constructor(){
+        super('already exists');
+        Object.setPrototypeOf(this, AlreadyExists.prototype);
+    }
+}
+
+class CollectionUsedForDocumentOperation extends FirestoreError{
+    constructor(){
+        super('collection used for document operation');
+        Object.setPrototypeOf(this, CollectionUsedForDocumentOperation.prototype);
+    }
+}
+
+export {  NoData, AlreadyExists, CollectionUsedForDocumentOperation }

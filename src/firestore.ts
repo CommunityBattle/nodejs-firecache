@@ -1,19 +1,19 @@
-import { Firestore as GoogleCloudFirestore, CollectionReference, DocumentData, WhereFilterOp } from "@google-cloud/firestore";
+import { Firestore as GoogleCloudFirestore, CollectionReference, DocumentData, WhereFilterOp, OrderByDirection, QueryPartition, Query } from "@google-cloud/firestore";
 
-import { FirestoreNoDataError } from "./errors.js";
+import { NoData, AlreadyExists, CollectionUsedForDocumentOperation } from "./errors.js";
 import Q from "./types.js";
 
-class Firestore{
+class Firestore {
     private static instance: Firestore;
 
-    private googleCloudFirestore: GoogleCloudFirestore; 
+    private googleCloudFirestore: GoogleCloudFirestore;
 
-    private constructor(){
+    private constructor() {
         this.googleCloudFirestore = new GoogleCloudFirestore();
     }
 
     public static getInstance(): Firestore {
-        if (!this.instance){
+        if (!this.instance) {
             this.instance = new Firestore();
         }
 
@@ -21,64 +21,140 @@ class Firestore{
     }
 
     public addListener(path: string, query: Q, callback: (data: any) => void, error: (err: Error) => void): () => void {
-        if (this.isDoc(path)){
+        if (this.isDoc(path)) {
             return this.googleCloudFirestore.doc(path).onSnapshot(callback, error);
         }
-        else{
+        else {
             return this.resolve(path, query).onSnapshot(callback, error);
         }
     }
 
     public read(path: string, query?: Q): Promise<any> {
-        if (this.isDoc(path)){
-            return this.googleCloudFirestore.doc(path).get().then(doc => {
+        return new Promise(async (resolve, reject) => {
+            if (this.isDoc(path)) {
+                let doc = await this.googleCloudFirestore.doc(path).get();
+
                 if (doc.exists) {
-                    return Promise.resolve(doc.data());
+                    return resolve(doc.data());
                 }
                 else {
-                    return Promise.reject(new FirestoreNoDataError());
+                    return reject(new NoData());
                 }
-            });
-        }
-        else{
-            return this.googleCloudFirestore.collection(path).get().then(coll => {
+            }
+            else {
+                let coll = await this.resolve(path, query).get();
+
                 let data = [];
 
                 for (const doc of coll.docs) {
-                    data.push({id: doc.id,  data: doc.data()})
+                    data.push({ id: doc.id, data: doc.data() })
                 }
-                
-                return Promise.resolve(data);
-            });
-        }
+
+                return resolve(data);
+            }
+        });
     }
 
-    public insert(path: string, data: any): Promise<any> {
-        return Promise.resolve();
+    public insert(path: string, data: any): Promise<string> {
+        return new Promise(async (resolve, reject) => {
+            if (this.isDoc(path)) {
+                let doc = await this.googleCloudFirestore.doc(path).get();
+                if (doc.exists) {
+                    return reject(new AlreadyExists());
+                }
+                else {
+                    await this.googleCloudFirestore.doc(path).create(data);
+                    return resolve("");
+                }
+            }
+            else {
+                let doc = await this.googleCloudFirestore.collection(path).add(data);
+                resolve(doc.id)
+            }
+        });
     }
 
-    public update(path: string, data: any): Promise<any> {
-        return Promise.resolve();
+    public update(path: string, data: any): Promise<void> {
+        return new Promise(async (resolve, reject) => {
+            if (this.isDoc(path)) {
+                let doc = await this.googleCloudFirestore.doc(path).get();
+
+                if (doc.exists) {
+                    await this.googleCloudFirestore.doc(path).update(data);
+                    return resolve();
+                }
+                else {
+                    return reject(new NoData());
+                }
+            }
+            else {
+                return reject(new CollectionUsedForDocumentOperation());
+            }
+        });
     }
 
-    public delete(path: string, query?: Q): Promise<any> {
-        return Promise.resolve();
+    public delete(path: string, query?: Q): Promise<void> {
+        return new Promise(async (resolve, reject) => {
+            if (this.isDoc(path)) {
+                let doc = await this.googleCloudFirestore.doc(path).get();
+
+                if (doc.exists) {
+                    let colls = await doc.ref.listCollections();
+
+                    for (const coll of colls) {
+                        let ref = await coll.get();
+
+                        for (const d of ref.docs) {
+                            await this.delete(`${path}/${doc.id}`);
+                        }
+                    }
+
+                    await doc.ref.delete();
+                    return resolve();
+                }
+                else {
+                    return reject(new NoData());
+                }
+            }
+            else {
+                let coll = await this.resolve(path, query).get();
+
+                for (const doc of coll.docs) {
+                    await this.delete(`${path}/${doc.id}`);
+                }
+
+                return resolve();
+            }
+        });
     }
 
     private isDoc(path: string): boolean {
         return (path.split("/").length % 2) == 0
     }
 
-    private resolve(path: string, query: Q): CollectionReference<DocumentData> {
-        let collection = this.googleCloudFirestore.collection(path);
+    private resolve(path: string, query?: Q): Query<DocumentData> {
+        let collectionRef = this.googleCloudFirestore.collection(path);
+        let queryRef: Query<DocumentData> = collectionRef;
 
-        for (const condition of query) {
-            collection.where(condition.field, (condition.operator as WhereFilterOp), condition.value)
+        if (query) {
+            for (const condition of query) {
+                queryRef = queryRef.where(condition.field, (condition.operator as WhereFilterOp), condition.value);
+
+                if (condition.order) {
+                    for (const order of condition.order) {
+                        queryRef = queryRef.orderBy(order.by, (order.direction as OrderByDirection));
+                    }
+                }
+
+                if (condition.limit) {
+                    queryRef = queryRef.limit(condition.limit);
+                }
+            }
         }
 
-        return collection;
+        return queryRef;
     }
 }
 
-export { Firestore, FirestoreNoDataError }
+export { Firestore }
 export default Firestore

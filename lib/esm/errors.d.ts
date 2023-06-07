@@ -1,7 +1,13 @@
 declare class FirestoreError extends Error {
     constructor(msg: string);
 }
-declare class FirestoreNoDataError extends FirestoreError {
+declare class NoData extends FirestoreError {
     constructor();
 }
-export { FirestoreNoDataError };
+declare class AlreadyExists extends FirestoreError {
+    constructor();
+}
+declare class CollectionUsedForDocumentOperation extends FirestoreError {
+    constructor();
+}
+export { NoData, AlreadyExists, CollectionUsedForDocumentOperation };

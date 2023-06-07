@@ -9,9 +9,9 @@
     "lib/"
   ],
   "scripts": {
-    "test": "SET GOOGLE_APPLICATION_CREDENTIALS=./sa.json&&node --loader tsx --test .\\test\\e2e.test.ts",
+    "test": "npm run build&&SET GOOGLE_APPLICATION_CREDENTIALS=./sa.json&&node --loader tsx --test .\\test\\e2e.test.ts",
     "build": "tsc -p tsconfig.json && tsc -p tsconfig-cjs.json",
-    "prepublishOnly": "npm run tsc"
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
