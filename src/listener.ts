@@ -1,28 +1,28 @@
-import Firestore from './firestore.js';
-import Q from "./types.js";
+import Database from './database.js'
+import { Q, ListenerEvent } from "./types.js"
 
 class Listener{
-    private static instance: Listener;
+    private static instance: Listener
     
-    private firestore: Firestore;
+    private database: Database
 
     private constructor(){
-        this.firestore = Firestore.getInstance();
+        this.database = Database.getInstance()
     }
 
     public static getInstance(): Listener {
         if (!this.instance){
-            this.instance = new Listener();
+            this.instance = new Listener()
         }
 
-        return this.instance;
+        return this.instance
     }
 
-    public addListener(path: string, query: Q, callback: (data: any) => void, error: (err: Error) => void) {
-        let unsubscribe = this.firestore.addListener(path, query, callback, error);
+    public addListener(path: string, query: Q, callback: (event: ListenerEvent) => void, error: (err: Error) => void) {
+        let unsubscribe = this.database.addListener(path, query, callback, error)
     }
 
-    public deleteListener(path: string, query: Q, callback: (data: any) => void) {
+    public deleteListener(path: string, query: Q, callback: (event: ListenerEvent) => void) {
         
     }
 }
